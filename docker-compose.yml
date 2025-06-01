@@ -1,0 +1,45 @@
+version: "3.8"
+
+services:
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ollama
+    ports:
+      - "11434:11434"
+    restart: always
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - capabilities: [gpu]
+    runtime: nvidia
+    networks:
+      - my_custom_network
+
+  api:
+    image: api_t2sql
+    container_name: api_service
+    ports:
+      - "8000:8000"
+    environment:
+      - DB_NAME=postgres
+      - DB_USER=postgres
+      - DB_PASSWORD=thangcoi123
+      - DB_HOST=host.docker.internal  # Still valid if DB is outside Docker
+      - OLLAMA_API_URL=http://ollama:11434
+      - CHROMA_PATH=chroma_store
+      - EMBEDDING_MODEL_NAME=intfloat/multilingual-e5-small
+      - LLM_MODEL=llama3:latest
+      - CSV_FILE_PATH=/app/data/metadata__.csv
+      - DATAMODEL_PATH=/app/data/datamodel.json
+      - META_STORAGE=postgres
+      - VECTOR_MODE=update
+    depends_on:
+      - ollama
+    restart: always
+    networks:
+      - my_custom_network
+
+networks:
+  my_custom_network:
+    driver: bridge
