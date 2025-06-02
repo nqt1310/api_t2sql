@@ -45,6 +45,12 @@ conn = psycopg2.connect(dbname=DB_NAME, user=DB_USER, password=DB_PASSWORD, host
 
 cursor = conn.cursor()
 
+def get_backenddb(cursor):
+    cursor.execute("SELECT DISTINCT backenddb FROM public.metadata_")
+    result = cursor.fetchall()
+    return result[0] if result else 'PostgreSQL'
+
+backend_db = get_backenddb(cursor)
 
 df = pd.read_csv(CSV_FILE_PATH)
 df["combined_content"] = "Tên bảng: " + df["table_name"] + "\n" + "Mô tả: " + df["table_description"] + "\n"
@@ -120,7 +126,7 @@ chat_prompt_template_output = ChatPromptTemplate.from_messages([
         "You are an assistant in understanding business requests and table metadata."
     ),
     (
-        "You are a SQL expert. Given the following table metadata and a business request, understand them and generate a syntactically correct SELECT query "
+        "You are a {backend_db} SQL expert. Given the following table metadata and a business request, understand them and generate a syntactically correct SELECT query "
         "to retrieve data relevant to the question. Only use the columns provided in the metadata below; do not query for all columns or include "
         "columns not listed. If the question involves 'today', use date('now') to get the current date. Use only SELECT queries; do not use "
         "INSERT, UPDATE, DELETE, CREATE, ALTER, or DROP commands.\n\n"
@@ -177,7 +183,8 @@ def generate_sql_query(query_text: str) -> str:
     prompt_text = final_prompt_output.format(
         full_input=full_input,
         datamodel=json.dumps(datamodel, ensure_ascii=False, indent=2),
-        query_text=query_text
+        query_text=query_text, 
+        backend_db=backend_db[0]
     )
     sql_response = llm.invoke(prompt_text)
     parsed_sql = parser_output.parse(sql_response)
