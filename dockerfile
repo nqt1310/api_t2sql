@@ -39,6 +39,8 @@ COPY app /app/app
 COPY config /app/config
 COPY data /app/data
 
+
+
 # Set PYTHONPATH
 ENV PYTHONPATH=/app
 

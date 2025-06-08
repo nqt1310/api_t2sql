@@ -2,7 +2,6 @@ import json
 import os
 # import re
 import shutil
-import requests
 import pandas as pd
 import psycopg2
 from dotenv import load_dotenv
@@ -13,7 +12,9 @@ from langchain_core.prompts import ChatPromptTemplate
 from langchain.chains import RetrievalQA
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain.output_parsers import ResponseSchema, StructuredOutputParser
+import oracledb
 import logging
+import torch
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -28,6 +29,7 @@ if not logger.handlers:
 
 load_dotenv()
 
+
 # Load environment variables
 DB_NAME = os.getenv("DB_NAME")
 DB_USER = os.getenv("DB_USER")
@@ -40,9 +42,26 @@ CHROMA_PATH = os.getenv("CHROMA_PATH")
 EMBEDDING_MODEL_NAME = os.getenv("EMBEDDING_MODEL_NAME")
 LLM_MODEL = os.getenv("LLM_MODEL")
 VECTOR_MODE = os.getenv("VECTOR_MODE")
+META_STORAGE = os.getenv("META_STORAGE")
+DSN = f"{DB_HOST}:1521/{DB_NAME}"
 
-conn = psycopg2.connect(dbname=DB_NAME, user=DB_USER, password=DB_PASSWORD, host=DB_HOST)
 
+
+
+def create_connection(meta_storage):
+    if meta_storage == "postgres":
+        return psycopg2.connect(dbname=DB_NAME, user=DB_USER, password=DB_PASSWORD, host=DB_HOST)
+    elif meta_storage == "oracle":
+        return oracledb.connect(user=DB_USER, password=DB_PASSWORD, dsn=DSN)
+    else:
+        raise ValueError("Unsupported META_STORAGE type.")
+
+def fetch_metadata(conn):
+    query = "SELECT * FROM metadata_"
+    df = pd.read_sql_query(query, conn)
+    return df
+
+conn = create_connection(META_STORAGE)
 cursor = conn.cursor()
 
 def get_backenddb(cursor):
@@ -52,11 +71,11 @@ def get_backenddb(cursor):
 
 backend_db = get_backenddb(cursor)
 
-df = pd.read_csv(CSV_FILE_PATH)
+df = fetch_metadata(conn)
 df["combined_content"] = "Tên bảng: " + df["table_name"] + "\n" + "Mô tả: " + df["table_description"] + "\n"
 metadata_loader = DataFrameLoader(df[["table_name", "combined_content"]].drop_duplicates(), page_content_column="combined_content")
 documents = metadata_loader.load()
-embedding_model = HuggingFaceEmbeddings(model_name=EMBEDDING_MODEL_NAME)
+embedding_model = HuggingFaceEmbeddings(model_name=EMBEDDING_MODEL_NAME, model_kwargs={"device": "cuda" if torch.cuda.is_available() else "cpu"})
 
 def init_vectorstore(documents, embedding_model, persist_directory, mode="truncate"):
     if mode == "truncate":
@@ -86,6 +105,7 @@ response_schemas = [
 ]
 parser = StructuredOutputParser.from_response_schemas(response_schemas)
 chat_prompt_template = ChatPromptTemplate.from_messages([
+    
     (
         "system",
         "You are an assistant in understanding business requests and table metadata."
