@@ -23,6 +23,6 @@ Checklist Tasks:
 
 curl -X POST http://localhost:8000/agent/query \
   -H "Content-Type: application/json" \
-  -d '{"query": "Doanh thu theo từng chi nhánh trong năm 2025", "execute": true}'
+  -d '{"query": "Lấy danh sách khách hàng có số giấy tờ định danh cá nhân = 001201015338", "execute": false}'
 
   

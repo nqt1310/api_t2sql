@@ -45,44 +45,52 @@ json_parser_output = JsonOutputParser()
 format_instructions_sql = json_parser_output.get_format_instructions()
 
 chat_prompt_template_output = ChatPromptTemplate.from_messages([
-    ("system", "You are a senior SQL engineer."),
+    ("system", "You are a senior SQL engineer. Your task is to generate SQL queries based on business requirements. You MUST ALWAYS return your answer as valid JSON, nothing else."),
     ("user",
      f"""
-     ====================
-     TABLE METADATA
-     ====================
-     {{full_input}}
+====================
+TABLE METADATA
+====================
+{{full_input}}
 
-     ====================
-     DATAMODEL
-     ====================
-     {{datamodel}}
+====================
+DATAMODEL
+====================
+{{datamodel}}
 
-     ====================
-     BUSINESS QUESTION
-     ====================
-     {{query_text}}
+====================
+BUSINESS QUESTION
+====================
+{{query_text}}
 
-     ====================
-     DATABASE
-     ====================
-     {{backend_db}}
+====================
+DATABASE TYPE
+====================
+{{backend_db}}
 
-     ====================
-     OUTPUT FORMAT (STRICT JSON)
-     ====================
-     Return ONLY valid JSON in the following format:
+====================
+CRITICAL REQUIREMENTS
+====================
+1. You MUST return ONLY valid JSON format
+2. Use ONLY the tables and columns from the datamodel provided above
+3. ALWAYS prefix table names with schema (e.g., DATA.PRIM_PARTY, RPT.RPT_CUST_IDENT_DLY)
+4. Never use table names without schema prefix
+5. Write SQL that is executable on the specified database
+6. Do NOT provide any explanation, only the JSON response
 
-     {format_instructions_sql}
+====================
+RESPONSE FORMAT (STRICT JSON)
+====================
+Return ONLY this JSON format:
 
-     Rules for YOUR ANSWER:
-     - Example output:
-            "cau_lenh_sql_theo_yeu_cau_nghiep_vu": "SELECT * FROM customers WHERE country = 'USA';"
-     - The JSON element must be named "cau_lenh_sql_theo_yeu_cau_nghiep_vu"
-     - SQL must be compatible with the specified database type
-     - SQL must be executable
-     - YOU DO NOT NEED TO EXPLAIN OR PROVIDE ANYTHING ELSE BUT THE SQL USE FOR THE TASK, YOUR ANSWER need to return the SQL query in the specified JSON format
-     - Only answer the questions asked according with the provided information
+{format_instructions_sql}
+
+Example:
+{{"cau_lenh_sql_theo_yeu_cau_nghiep_vu": "SELECT * FROM DATA.PRIM_PARTY WHERE IDENTN_DOC_NBR = '001201015338';"}}
+
+Important: Your ENTIRE response must be ONLY the JSON above, starting with {{ and ending with }}.
+Do not include any text before or after the JSON.
+Do not include markdown code blocks.
      """)
 ])
 

@@ -85,7 +85,7 @@ class RAGSQLPipeline:
 
         full_input = ""
         for r in rows:
-            table, desc, col, dtype, domain, *_ , schema = r
+            table, desc, col, dtype, domain, *_, schema = r
             full_input += (
                 f"Table: {table}\n"
                 f"Description: {desc}\n"
@@ -99,13 +99,20 @@ class RAGSQLPipeline:
             backend_db=self.backend_db[0],
         )
 
-        raw_sql = self.llm.invoke(prompt)
-
+        # Use piped chain: prompt | llm | parser for better JSON parsing
         try:
-            parsed = self.parser_output.parse(raw_sql)
+            chain = prompt | self.llm | self.parser_output
+            parsed = chain.invoke({})
             logging.info("[GENERATED SQL] %s", parsed.get("cau_lenh_sql_theo_yeu_cau_nghiep_vu", ""))   
             return parsed.get("cau_lenh_sql_theo_yeu_cau_nghiep_vu", "")
         except Exception as e:
-            logging.error("[SQL PARSE ERROR] %s", e)
-            logging.error(raw_sql)
-            return raw_sql
+            logging.error("[SQL CHAIN PARSE ERROR] %s", e)
+            # Fallback: try direct invoke
+            try:
+                raw_sql = self.llm.invoke(prompt)
+                parsed = self.parser_output.parse(raw_sql)
+                return parsed.get("cau_lenh_sql_theo_yeu_cau_nghiep_vu", "")
+            except Exception as e2:
+                logging.error("[SQL FALLBACK PARSE ERROR] %s", e2)
+                logging.error(raw_sql)
+                return raw_sql
