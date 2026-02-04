@@ -45,6 +45,8 @@ chroma_store/
 *.db
 *.sqlite
 
-# Data
+# Data - Large model files
 data/model/
+data/model/**
+*.safetensors
 faiss_base/
