@@ -7,12 +7,14 @@ pydantic
 python-multipart
 langchain-community
 langchain-huggingface
+langchain-openai
 sentence-transformers
 langchain_core
 langchain
 transformers
 tf-keras
 pandas
-chromadb
+faiss-gpu-cu11
 huggingface_hub[hf_xet] 
-logger
+sqlalchemy
+unidecode
