@@ -48,3 +48,6 @@ CHATGPT_MODEL = os.getenv("CHATGPT_MODEL", "gpt-4")
 # ===== VLLM CONFIGURATION =====
 VLLM_API_URL = os.getenv("VLLM_API_URL", "http://localhost:8000/v1")
 VLLM_MODEL = os.getenv("VLLM_MODEL", "meta-llama/Llama-2-7b-hf")
+
+# ===== FRONTEND CONFIGURATION =====
+ENABLE_FRONTEND = os.getenv("ENABLE_FRONTEND", "true").lower() == "true"

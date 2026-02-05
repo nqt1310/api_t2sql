@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>API Debug Test</title>
+    <style>
+        body {
+            font-family: monospace;
+            padding: 20px;
+            background: #1e1e1e;
+            color: #d4d4d4;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        h1 { color: #4ec9b0; }
+        button {
+            background: #0e639c;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            cursor: pointer;
+            margin: 10px 5px;
+            border-radius: 5px;
+        }
+        button:hover { background: #1177bb; }
+        pre {
+            background: #252526;
+            padding: 15px;
+            border-radius: 5px;
+            overflow-x: auto;
+            border: 1px solid #3e3e42;
+        }
+        .success { color: #4ec9b0; }
+        .error { color: #f48771; }
+        .label { color: #569cd6; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 API Debug Tool</h1>
+        
+        <div>
+            <button onclick="testNormal()">Test /agent/query (Normal)</button>
+            <button onclick="testDebug()">Test /agent/debug (Debug)</button>
+            <button onclick="clearOutput()">Clear</button>
+        </div>
+
+        <div id="output"></div>
+    </div>
+
+    <script>
+        const API_URL = 'http://localhost:8000';
+        const TEST_QUERY = 'Lấy họ tên khách hàng có số giấy tờ định danh cá nhân = 001201015338';
+
+        async function testNormal() {
+            log('🔄 Testing /agent/query...');
+            try {
+                const response = await fetch(`${API_URL}/agent/query`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        query: TEST_QUERY,
+                        execute: false
+                    })
+                });
+                
+                const data = await response.json();
+                log('✅ Response Status: ' + response.status, 'success');
+                log('📦 Response Data:', 'label');
+                log(JSON.stringify(data, null, 2));
+                
+                // Check specific fields
+                log('\n🔍 Field Analysis:', 'label');
+                log(`- success: ${data.success}`);
+                log(`- sql: ${data.sql ? 'EXISTS ✓' : 'MISSING ✗'}`);
+                log(`- sql_query: ${data.sql_query ? 'EXISTS ✓' : 'MISSING ✗'}`);
+                log(`- result: ${data.result ? 'EXISTS ✓' : 'MISSING ✗'}`);
+                log(`- results: ${data.results ? 'EXISTS ✓' : 'MISSING ✗'}`);
+                log(`- error: ${data.error || 'none'}`);
+                
+                if (data.sql) {
+                    log('\n📝 SQL Query:', 'success');
+                    log(data.sql);
+                }
+            } catch (error) {
+                log('❌ Error: ' + error.message, 'error');
+            }
+        }
+
+        async function testDebug() {
+            log('🔄 Testing /agent/debug...');
+            try {
+                const response = await fetch(`${API_URL}/agent/debug`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        query: TEST_QUERY,
+                        execute: false
+                    })
+                });
+                
+                const data = await response.json();
+                log('✅ Response Status: ' + response.status, 'success');
+                log('📦 Debug Response:', 'label');
+                log(JSON.stringify(data, null, 2));
+            } catch (error) {
+                log('❌ Error: ' + error.message, 'error');
+            }
+        }
+
+        function log(message, className = '') {
+            const output = document.getElementById('output');
+            const div = document.createElement('div');
+            div.className = className;
+            
+            if (typeof message === 'object') {
+                const pre = document.createElement('pre');
+                pre.textContent = JSON.stringify(message, null, 2);
+                div.appendChild(pre);
+            } else if (message.startsWith('{') || message.startsWith('[')) {
+                const pre = document.createElement('pre');
+                pre.textContent = message;
+                div.appendChild(pre);
+            } else {
+                div.textContent = message;
+            }
+            
+            output.appendChild(div);
+        }
+
+        function clearOutput() {
+            document.getElementById('output').innerHTML = '';
+        }
+
+        // Auto test on load
+        window.onload = () => {
+            log('🚀 API Debug Tool Ready', 'success');
+            log('Click buttons to test API endpoints\n', 'label');
+        };
+    </script>
+</body>
+</html>

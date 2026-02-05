@@ -172,3 +172,29 @@ def reset_agent():
     agent_orchestrator.reset()
     return {"success": True, "message": "Agent reset successfully"}
 
+
+@app.post("/agent/debug")
+def debug_query(request: AgentQuery):
+    """Debug endpoint to see raw response"""
+    if agent_orchestrator is None:
+        raise HTTPException(500, "Agent not initialized")
+    
+    try:
+        result = agent_orchestrator.process_query(
+            request.query,
+            execute=request.execute,
+            max_iterations=request.max_iterations
+        )
+        # Return raw result for debugging
+        return {
+            "raw_result": result,
+            "type": str(type(result)),
+            "keys": list(result.keys()) if isinstance(result, dict) else None
+        }
+    except Exception as e:
+        import traceback
+        return {
+            "error": str(e),
+            "traceback": traceback.format_exc()
+        }
+

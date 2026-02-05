@@ -1,6 +1,10 @@
 import uvicorn
 import torch
 import logging
+from pathlib import Path
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 from langchain_huggingface import HuggingFaceEmbeddings
 from base.db import DBConnection
 from base.vector_store_manager import DataLoader
@@ -54,26 +58,47 @@ embedding = HuggingFaceEmbeddings(
 # ===== LLM INITIALIZATION =====
 logger.info(f"Initializing LLM with provider: {LLM_PROVIDER}")
 
+# Import model optimizer
+from model_optimizer import ModelOptimizer
+
 try:
     if LLM_PROVIDER == "ollama":
+        # Get optimized settings
+        model_name = OLLAMA_MODEL
+        optimized = ModelOptimizer.get_optimized_config(model_name)
+        logger.info(f"Detected model type: {optimized.get('detected_type', 'unknown')}")
+        
+        # Use optimized temperature if not set in env
+        temp = LLM_TEMPERATURE if LLM_TEMPERATURE != 0.7 else optimized.get('temperature', 0.2)
+        max_tok = LLM_MAX_TOKENS if LLM_MAX_TOKENS else optimized.get('max_tokens', 2048)
+        
         llm = LLMFactory.create_llm(
             provider="ollama",
             model_name=OLLAMA_MODEL,
             api_url=OLLAMA_API_URL,
-            temperature=LLM_TEMPERATURE,
-            max_tokens=LLM_MAX_TOKENS
+            temperature=temp,
+            max_tokens=max_tok
         )
-        logger.info(f"✓ Ollama LLM initialized: {OLLAMA_MODEL}")
+        logger.info(f"✓ Ollama LLM initialized: {OLLAMA_MODEL} (temp={temp}, max_tokens={max_tok})")
         
     elif LLM_PROVIDER == "chatgpt":
+        # Get optimized settings
+        model_name = CHATGPT_MODEL
+        optimized = ModelOptimizer.get_optimized_config(model_name)
+        logger.info(f"Detected model type: {optimized.get('detected_type', 'unknown')}")
+        
+        # Use optimized temperature if not set in env
+        temp = LLM_TEMPERATURE if LLM_TEMPERATURE != 0.7 else optimized.get('temperature', 0.2)
+        max_tok = LLM_MAX_TOKENS if LLM_MAX_TOKENS else optimized.get('max_tokens', 2048)
+        
         llm = LLMFactory.create_llm(
             provider="chatgpt",
             model_name=CHATGPT_MODEL,
             api_key=OPENAI_API_KEY,
-            temperature=LLM_TEMPERATURE,
-            max_tokens=LLM_MAX_TOKENS
+            temperature=temp,
+            max_tokens=max_tok
         )
-        logger.info(f"✓ ChatGPT LLM initialized: {CHATGPT_MODEL}")
+        logger.info(f"✓ ChatGPT LLM initialized: {CHATGPT_MODEL} (temp={temp}, max_tokens={max_tok})")
         
     elif LLM_PROVIDER == "vllm":
         llm = LLMFactory.create_llm(
@@ -126,6 +151,33 @@ mcp_server.rag_pipeline = pipeline
 mcp_server.agent_orchestrator = agent_orchestrator
 
 mcp_server.inject_agent(agent_orchestrator)  # Inject agent into server
+
+# ===== CORS MIDDLEWARE =====
+mcp_server.app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Trong production nên chỉ định cụ thể
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# ===== FRONTEND SETUP =====
+if ENABLE_FRONTEND:
+    frontend_dir = Path(__file__).parent / "frontend"
+    if frontend_dir.exists():
+        # Mount static files (CSS, JS)
+        mcp_server.app.mount("/static", StaticFiles(directory=str(frontend_dir)), name="static")
+        
+        # Serve index.html at root
+        @mcp_server.app.get("/")
+        async def serve_frontend():
+            return FileResponse(str(frontend_dir / "index.html"))
+        
+        logger.info("✓ Frontend enabled at http://localhost:8000/")
+    else:
+        logger.warning(f"Frontend directory not found: {frontend_dir}")
+else:
+    logger.info("Frontend disabled (set ENABLE_FRONTEND=true to enable)")
 
 if __name__ == "__main__":
     print("=" * 60)

@@ -8,32 +8,21 @@ json_parser = JsonOutputParser()
 format_instructions = json_parser.get_format_instructions()
 
 chat_prompt_template = ChatPromptTemplate.from_messages([
-    ("system", "You are an assistant in understanding business requests and table metadata."),
+    ("system", "You identify table names from metadata. Output ONLY JSON array with table names. NO explanations. NO SQL."),
     ("user",
-     f"""
-     The metadata is provided in the following format for each entry:
+     """
+METADATA:
+{context}
 
-     table_name: table_description
+USER QUERY:
+{question}
 
-     Based on the metadata above, identify all tables that are relevant to the request.
+OUTPUT (JSON only):
+{{"danh_sach_bang_lien_quan": ["TABLE1", "TABLE2"]}}
 
-     Output format must be EXACTLY:
-     {format_instructions}
+Your response (copy format exactly):
+""")
 
-     Rules:
-     - Example output:
-            "danh_sach_bang_lien_quan": ["customers", "orders"]
-     - The Json element "danh_sach_bang_lien_quan" must contain a list of table names, always be this string "danh_sach_bang_lien_quan"
-     - Only list table names that are explicitly mentioned or clearly implied by the request
-     - Output JSON ONLY, if multiple tables, list them all in a JSON array
-     - No explanation
-     - No markdown
-     - Do not hallucinate table names
-     Metadata:
-     {{context}}
-     Question:
-     {{question}}
-     """)
 ])
 
 final_prompt = chat_prompt_template
@@ -45,53 +34,25 @@ json_parser_output = JsonOutputParser()
 format_instructions_sql = json_parser_output.get_format_instructions()
 
 chat_prompt_template_output = ChatPromptTemplate.from_messages([
-    ("system", "You are a senior SQL engineer. Your task is to generate SQL queries based on business requirements. You MUST ALWAYS return your answer as valid JSON, nothing else."),
+    ("system", "Generate SQL queries. Output ONLY valid JSON. NO explanations."),
     ("user",
-     f"""
-====================
-TABLE METADATA
-====================
-{{full_input}}
+     """
+TABLES AND COLUMNS:
+{full_input}
 
-====================
-DATAMODEL
-====================
-{{datamodel}}
+USER QUERY:
+{query_text}
 
-====================
-BUSINESS QUESTION
-====================
-{{query_text}}
+OUTPUT (JSON only):
+{{"cau_lenh_sql_theo_yeu_cau_nghiep_vu": "SELECT * FROM SCHEMA.TABLE WHERE condition"}}
 
-====================
-DATABASE TYPE
-====================
-{{backend_db}}
+Rules:
+- Use schema prefix (e.g., DATA.PRIM_PARTY)
+- Valid JSON with double quotes
+- No text outside JSON
 
-====================
-CRITICAL REQUIREMENTS
-====================
-1. You MUST return ONLY valid JSON format
-2. Use ONLY the tables and columns from the datamodel provided above
-3. ALWAYS prefix table names with schema (e.g., DATA.PRIM_PARTY, RPT.RPT_CUST_IDENT_DLY)
-4. Never use table names without schema prefix
-5. Write SQL that is executable on the specified database
-6. Do NOT provide any explanation, only the JSON response
-
-====================
-RESPONSE FORMAT (STRICT JSON)
-====================
-Return ONLY this JSON format:
-
-{format_instructions_sql}
-
-Example:
-{{"cau_lenh_sql_theo_yeu_cau_nghiep_vu": "SELECT * FROM DATA.PRIM_PARTY WHERE IDENTN_DOC_NBR = '001201015338';"}}
-
-Important: Your ENTIRE response must be ONLY the JSON above, starting with {{ and ending with }}.
-Do not include any text before or after the JSON.
-Do not include markdown code blocks.
-     """)
+Your response:
+""")
 ])
 
 final_prompt_output = chat_prompt_template_output

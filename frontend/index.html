@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Text-to-SQL Agent</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <!-- SheetJS for Excel support -->
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🤖 Text-to-SQL Agent</h1>
+            <p class="subtitle">Chuyển đổi câu hỏi tiếng Việt thành SQL query</p>
+        </header>
+
+        <div class="main-content">
+            <!-- Input Section -->
+            <div class="input-section">
+                <!-- Query Mode Selector -->
+                <div class="mode-selector">
+                    <label class="mode-option">
+                        <input type="radio" name="query-mode" value="simple" checked>
+                        <span>📝 Câu hỏi đơn giản</span>
+                    </label>
+                    <label class="mode-option">
+                        <input type="radio" name="query-mode" value="smart">
+                        <span>🎯 Smart Query (File + Yêu cầu)</span>
+                    </label>
+                </div>
+
+                <!-- Simple Query Mode -->
+                <div id="simple-mode" class="query-mode-content">
+                    <label for="query-input">Nhập câu hỏi của bạn:</label>
+                    <textarea 
+                        id="query-input" 
+                        placeholder="Ví dụ: Lấy họ tên khách hàng có số giấy tờ định danh cá nhân = 001201015338"
+                        rows="4"
+                    ></textarea>
+                </div>
+
+                <!-- Smart Query Mode -->
+                <div id="smart-mode" class="query-mode-content" style="display: none;">
+                    <div class="smart-step">
+                        <label class="step-label">📁 Bước 1: Upload file danh sách (Excel/CSV)</label>
+                        <p class="step-desc">File chứa danh sách CCCD, Mã KH, hoặc bất kỳ dữ liệu tra cứu nào</p>
+                        <input type="file" id="smart-file-input" accept=".csv,.xlsx,.xls" style="display: none;">
+                        <button type="button" class="file-btn" onclick="document.getElementById('smart-file-input').click()">
+                            Chọn file
+                        </button>
+                        <span id="smart-file-name" class="file-name"></span>
+                        <button type="button" id="smart-clear-file" class="clear-file-btn" style="display: none;">✕</button>
+                    </div>
+                    
+                    <div id="smart-file-preview" class="smart-file-preview" style="display: none;">
+                        <p><strong>📄 File:</strong> <span id="smart-file-info-name"></span></p>
+                        <p><strong>📊 Số dòng dữ liệu:</strong> <span id="smart-file-info-rows"></span></p>
+                        <p>
+                            <strong>📌 Cột chứa mã tra cứu:</strong>
+                            <select id="smart-column-select" class="column-select"></select>
+                        </p>
+                        <div id="smart-data-preview" class="data-preview-mini"></div>
+                    </div>
+
+                    <div class="smart-step">
+                        <label class="step-label">💭 Bước 2: Mô tả yêu cầu thông tin</label>
+                        <p class="step-desc">Liệt kê các thông tin bạn cần lấy, thời điểm dữ liệu, điều kiện lọc...</p>
+                        <textarea 
+                            id="smart-requirements" 
+                            placeholder="Ví dụ:&#10;Tôi cần biết thông tin khách hàng tại thời điểm T12/2025:&#10;- Số CCCD&#10;- Tên khách hàng&#10;- Số tài khoản&#10;- Loại tài khoản&#10;- Chi nhánh quản lý&#10;- Ngày mở tài khoản"
+                            rows="10"
+                        ></textarea>
+                    </div>
+
+                    <div id="smart-preview" class="smart-preview" style="display: none;">
+                        <h4>🔍 Preview câu query sẽ gửi:</h4>
+                        <pre id="smart-preview-text"></pre>
+                    </div>
+                </div>
+
+                <!-- Options -->
+                <div class="options">
+                    <label class="checkbox-container">
+                        <input type="checkbox" id="execute-checkbox" checked>
+                        <span>Thực thi query</span>
+                    </label>
+                </div>
+
+                <button id="submit-btn" class="submit-btn">
+                    <span class="btn-text">Gửi câu hỏi</span>
+                    <span class="btn-loading" style="display: none;">
+                        <span class="spinner"></span> Đang xử lý...
+                    </span>
+                </button>
+            </div>
+
+            <!-- Result Section -->
+            <div class="result-section" id="result-section" style="display: none;">
+                <h2>Kết quả</h2>
+                
+                <!-- SQL Query -->
+                <div class="result-block">
+                    <h3>📝 SQL Query</h3>
+                    <div class="code-block">
+                        <button class="copy-btn" onclick="copyToClipboard('sql-query')">Copy</button>
+                        <pre id="sql-query"></pre>
+                    </div>
+                </div>
+
+                <!-- Execution Results -->
+                <div class="result-block" id="execution-results" style="display: none;">
+                    <h3>✅ Kết quả thực thi</h3>
+                    <div class="table-container" id="table-container"></div>
+                </div>
+
+                <!-- Error Display -->
+                <div class="result-block error-block" id="error-block" style="display: none;">
+                    <h3>⚠️ Lỗi</h3>
+                    <pre id="error-message"></pre>
+                </div>
+
+                <!-- Metadata -->
+                <div class="metadata" id="metadata">
+                    <div class="metadata-item">
+                        <span class="label">Thời gian:</span>
+                        <span id="response-time">-</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Examples Section -->
+            <div class="examples-section">
+                <h3>💡 Ví dụ câu hỏi:</h3>
+                <div class="example-cards">
+                    <div class="example-card" onclick="fillExample(this)">
+                        <p>Lấy họ tên khách hàng có số giấy tờ định danh cá nhân = 001201015338</p>
+                    </div>
+                    <div class="example-card" onclick="fillExample(this)">
+                        <p>Lấy toàn bộ dữ liệu bảng PRIM_PARTY</p>
+                    </div>
+                    <div class="example-card" onclick="fillExample(this)">
+                        <p>Đếm số lượng khách hàng trong hệ thống</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <footer>
+            <p>API Status: <span id="api-status" class="status-checking">Đang kiểm tra...</span></p>
+        </footer>
+    </div>
+
+    <script src="/static/script.js"></script>
+</body>
+</html>
